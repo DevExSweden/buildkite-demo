@@ -10,7 +10,7 @@ python3 -m calculator add 2 3       # try it
 ## Pipeline (`.buildkite/pipeline.yml`)
 
 1. **Lint**: byte-compiles the code to catch syntax errors
-2. **Tests**: runs pytest, posts a pass/fail annotation, and uploads JUnit results to Test Engine (needs a `TEST_ENGINE_TOKEN` cluster secret holding the suite API token)
+2. **Tests**: `bktec` (via the `tests` plugin) runs pytest split across 2 parallel jobs and uploads results to Test Engine. It authenticates with OIDC, so no stored token is needed; the suite is created from the pipeline slug on the first run.
 3. **Smoke run**: runs the CLI once
 4. **Release?**: manual approval (main branch only)
 5. **Fake deploy**: echoes the commit (main branch only)
