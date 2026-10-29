@@ -8,6 +8,10 @@ steps:
     depends_on: "lint"
     secrets:
       - TEST_ENGINE_TOKEN
+    env:
+      # Debian/Ubuntu agents block pip outside a venv (PEP 668); a --user install
+      # in a throwaway CI job is fine. Older pip versions ignore this variable.
+      PIP_BREAK_SYSTEM_PACKAGES: "1"
     command: |
       set -o pipefail
       python3 -m pip install --quiet --user pytest
