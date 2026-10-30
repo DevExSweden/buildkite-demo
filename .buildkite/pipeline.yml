@@ -1,7 +1,14 @@
+notify:
+  - github_commit_status:
+      context: "my-custom-status"
+
 steps:
   - label: ":mag: Lint"
     key: "lint"
     command: "python3 -m compileall -q calculator tests"
+    notify:
+      - github_commit_status:
+          context: "my-custom-status/lint"
 
   - label: ":test_tube: Tests"
     key: "tests"
@@ -33,14 +40,35 @@ steps:
       automatic:
         - exit_status: -1   # agent lost
           limit: 2
+    notify:
+      - github_commit_status:
+          context: "my-custom-status/tests"
 
   - label: ":computer: Smoke run"
     depends_on: "tests"
     command: "python3 -m calculator add 2 3"
+    notify:
+      - github_commit_status:
+          context: "my-custom-status/smoke"
+
+  - group: ":lock_with_ink_pen: Security Audits"
+    key: "audits"
+    depends_on: "lint"
+    notify:
+      - github_commit_status:
+          context: "group status"
+    steps:
+      - label: ":mag: Bandit"
+        key: "bandit"
+        env:
+          PIP_BREAK_SYSTEM_PACKAGES: "1"
+        command: |
+          python3 -m pip install --quiet --user bandit
+          python3 -m bandit -r calculator
 
   - block: ":rocket: Release?"
     key: "approve"
-    depends_on: "tests"
+    depends_on: ["tests", "audits"]
     branches: "main"
 
   - label: ":package: Fake deploy"
