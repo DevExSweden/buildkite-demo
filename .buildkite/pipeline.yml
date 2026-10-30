@@ -6,6 +6,9 @@ steps:
   - label: ":mag: Lint"
     key: "lint"
     command: "python3 -m compileall -q calculator tests"
+    notify:
+      - github_commit_status:
+          context: "my-custom-status/lint"
 
   - label: ":test_tube: Tests"
     key: "tests"
@@ -37,10 +40,16 @@ steps:
       automatic:
         - exit_status: -1   # agent lost
           limit: 2
+    notify:
+      - github_commit_status:
+          context: "my-custom-status/tests"
 
   - label: ":computer: Smoke run"
     depends_on: "tests"
     command: "python3 -m calculator add 2 3"
+    notify:
+      - github_commit_status:
+          context: "my-custom-status/smoke"
 
   - block: ":rocket: Release?"
     key: "approve"
