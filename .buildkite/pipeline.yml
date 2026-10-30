@@ -7,24 +7,32 @@ steps:
     key: "lint"
     command: "python3 -m compileall -q calculator tests"
 
-  - label: ":test_tube: Tests %n"
+  - label: ":test_tube: Tests"
     key: "tests"
     depends_on: "lint"
-    parallelism: 2
+    secrets:
+      - TEST_ENGINE_TOKEN
     env:
       # Debian/Ubuntu agents block pip outside a venv (PEP 668); a --user install
       # in a throwaway CI job is fine. Older pip versions ignore this variable.
       PIP_BREAK_SYSTEM_PACKAGES: "1"
     command: |
+      set -o pipefail
       python3 -m pip install --quiet --user pytest
-      bktec run
+      if ! python3 -m pytest --junitxml=tmp/junit.xml -v 2>&1 | tee test-output.txt; then
+        printf '**Tests failed** :x:\n\n```\n%s\n```\n' "$(cat test-output.txt)" \
+          | buildkite-agent annotate --style "error" --context "tests"
+        exit 1
+      fi
+      buildkite-agent annotate "All tests passed :white_check_mark:" --style "success" --context "tests"
+    artifact_paths:
+      - "test-output.txt"
+      - "tmp/junit.xml"
     plugins:
-      # Installs bktec, authenticates with OIDC (no stored token) and splits
-      # tests across the parallel jobs using Test Engine timing data.
-      - tests#v1.1.0:
-          test-runner: pytest
-          # --user installs don't put pytest on PATH, so call it via python3 -m.
-          test-cmd: "python3 -m pytest {{testExamples}} --junit-xml={{resultPath}}"
+      - test-collector#v1.12.0:
+          files: "tmp/junit.xml"
+          format: "junit"
+          api-token-env-name: "TEST_ENGINE_TOKEN"
     retry:
       automatic:
         - exit_status: -1   # agent lost
