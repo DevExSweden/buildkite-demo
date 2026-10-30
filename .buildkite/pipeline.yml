@@ -51,9 +51,24 @@ steps:
       - github_commit_status:
           context: "my-custom-status/smoke"
 
+  - group: ":lock_with_ink_pen: Security Audits"
+    key: "audits"
+    depends_on: "lint"
+    notify:
+      - github_commit_status:
+          context: "group status"
+    steps:
+      - label: ":mag: Bandit"
+        key: "bandit"
+        env:
+          PIP_BREAK_SYSTEM_PACKAGES: "1"
+        command: |
+          python3 -m pip install --quiet --user bandit
+          python3 -m bandit -r calculator
+
   - block: ":rocket: Release?"
     key: "approve"
-    depends_on: "tests"
+    depends_on: ["tests", "audits"]
     branches: "main"
 
   - label: ":package: Fake deploy"
