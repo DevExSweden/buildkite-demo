@@ -7,13 +7,23 @@ python3 -m unittest discover -v     # run tests
 python3 -m calculator add 2 3       # try it
 ```
 
-## Pipeline (`.buildkite/pipeline.yml`)
+## Pipeline
 
-1. **Lint**: byte-compiles the code to catch syntax errors
-2. **Tests**: runs pytest, posts a pass/fail annotation, and uploads JUnit results to Test Engine (needs a `TEST_ENGINE_TOKEN` cluster secret holding the suite API token)
-3. **Smoke run**: runs the CLI once
-4. **Release?**: manual approval (main branch only)
-5. **Fake deploy**: echoes the commit (main branch only)
+`.buildkite/pipeline.yml` only starts `.buildkite/generate_pipeline.py`, which decides the steps at build time:
+
+- **Lint** always runs.
+- **Tests** gets one step per `tests/test_*.py` file and uploads results to Test Engine (needs a `TEST_ENGINE_TOKEN` cluster secret).
+- **Smoke run** and **Security Audits** (Bandit) run with the tests.
+- Branches that change only Markdown files run just Lint.
+- **Release?** and **Fake deploy** are added only on `main`.
+
+`.buildkite/pipeline.static.yml` is the earlier hand-written pipeline, kept as an example.
+
+Preview the generated pipeline locally:
+
+```bash
+BUILDKITE_BRANCH=main python3 .buildkite/generate_pipeline.py
+```
 
 ## Setting it up in Buildkite
 

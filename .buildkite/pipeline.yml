@@ -1,77 +1,9 @@
-notify:
-  - github_commit_status:
-      context: "my-custom-status"
-
+# Bootstrap: generates the real steps at build time. The hand-written version
+# is kept in pipeline.static.yml as an example; to use it instead, replace the
+# command below with: buildkite-agent pipeline upload .buildkite/pipeline.static.yml
 steps:
-  - label: ":mag: Lint"
-    key: "lint"
-    command: "python3 -m compileall -q calculator tests"
-    notify:
-      - github_commit_status:
-          context: "my-custom-status/lint"
-
-  - label: ":test_tube: Tests"
-    key: "tests"
-    depends_on: "lint"
-    secrets:
-      - TEST_ENGINE_TOKEN
-    env:
-      # Debian/Ubuntu agents block pip outside a venv (PEP 668); a --user install
-      # in a throwaway CI job is fine. Older pip versions ignore this variable.
-      PIP_BREAK_SYSTEM_PACKAGES: "1"
+  - label: ":pipeline: Generate pipeline"
+    key: "generate"
     command: |
-      set -o pipefail
-      python3 -m pip install --quiet --user pytest
-      if ! python3 -m pytest --junitxml=tmp/junit.xml -v 2>&1 | tee test-output.txt; then
-        printf '**Tests failed** :x:\n\n```\n%s\n```\n' "$(cat test-output.txt)" \
-          | buildkite-agent annotate --style "error" --context "tests"
-        exit 1
-      fi
-      buildkite-agent annotate "All tests passed :white_check_mark:" --style "success" --context "tests"
-    artifact_paths:
-      - "test-output.txt"
-      - "tmp/junit.xml"
-    plugins:
-      - test-collector#v1.12.0:
-          files: "tmp/junit.xml"
-          format: "junit"
-          api-token-env-name: "TEST_ENGINE_TOKEN"
-    retry:
-      automatic:
-        - exit_status: -1   # agent lost
-          limit: 2
-    notify:
-      - github_commit_status:
-          context: "my-custom-status/tests"
-
-  - label: ":computer: Smoke run"
-    depends_on: "tests"
-    command: "python3 -m calculator add 2 3"
-    notify:
-      - github_commit_status:
-          context: "my-custom-status/smoke"
-
-  - group: ":lock_with_ink_pen: Security Audits"
-    key: "audits"
-    depends_on: "lint"
-    notify:
-      - github_commit_status:
-          context: "group status"
-    steps:
-      - label: ":mag: Bandit"
-        key: "bandit"
-        env:
-          PIP_BREAK_SYSTEM_PACKAGES: "1"
-        command: |
-          python3 -m pip install --quiet --user bandit
-          python3 -m bandit -r calculator
-
-  - block: ":rocket: Release?"
-    key: "approve"
-    depends_on: ["tests", "audits"]
-    branches: "main"
-
-  - label: ":package: Fake deploy"
-    depends_on: "approve"
-    branches: "main"
-    command: 'echo "Deploying commit $$BUILDKITE_COMMIT from build #$$BUILDKITE_BUILD_NUMBER"'
+      set -euo pipefail
+      python3 .buildkite/generate_pipeline.py | buildkite-agent pipeline upload
